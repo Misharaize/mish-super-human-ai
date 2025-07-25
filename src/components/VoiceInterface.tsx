@@ -98,11 +98,29 @@ export const VoiceInterface = ({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputText;
     setInputText("");
 
-    // Simulate MISH response
-    setTimeout(() => {
-      const mishResponse = generateMishResponse(inputText, personalityMode);
+    try {
+      // Get AI response
+      const response = await fetch('https://ftuxzwjwudxtpwqlqurj.functions.supabase.co/chat-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          personalityMode
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response');
+      }
+
+      const data = await response.json();
+      const mishResponse = data.response;
+      
       const mishMessage = {
         id: (Date.now() + 1).toString(),
         text: mishResponse,
@@ -111,14 +129,49 @@ export const VoiceInterface = ({
       };
       setMessages(prev => [...prev, mishMessage]);
       
-      // Simulate text-to-speech
+      // Text-to-speech if enabled
       if (isVoiceEnabled) {
         onSpeakStart();
-        setTimeout(() => {
-          onSpeakEnd();
-        }, mishResponse.length * 50); // Simulate speech duration
+        await playTextToSpeech(mishResponse);
+        onSpeakEnd();
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get response from MISH",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const playTextToSpeech = async (text: string) => {
+    try {
+      const response = await fetch('https://ftuxzwjwudxtpwqlqurj.functions.supabase.co/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate speech');
+      }
+
+      const data = await response.json();
+      
+      // Play the audio
+      const audio = new Audio(`data:audio/mpeg;base64,${data.audioContent}`);
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing text-to-speech:', error);
+      toast({
+        title: "TTS Error",
+        description: "Failed to play speech",
+        variant: "destructive"
+      });
+    }
   };
 
   const generateMishResponse = (input: string, mode: string): string => {
