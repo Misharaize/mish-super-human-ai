@@ -85,8 +85,18 @@ export const VoiceInterface = ({
       };
       
       recorder.onstop = async () => {
+        console.log('Recording stopped, chunks:', audioChunks.length);
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        await processVoiceInput(audioBlob);
+        console.log('Created audio blob:', audioBlob.size, 'bytes');
+        if (audioBlob.size > 0) {
+          await processVoiceInput(audioBlob);
+        } else {
+          toast({
+            title: "Recording error",
+            description: "No audio was recorded. Please try again.",
+            variant: "destructive"
+          });
+        }
         setAudioChunks([]);
       };
       
@@ -125,10 +135,22 @@ export const VoiceInterface = ({
 
   const processVoiceInput = async (audioBlob: Blob) => {
     try {
+      console.log('Processing audio blob:', audioBlob.size, 'bytes');
+      
+      if (audioBlob.size === 0) {
+        throw new Error('No audio data recorded');
+      }
+
       // Convert audio to base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
+        
+        if (!base64Audio || base64Audio.length === 0) {
+          throw new Error('Failed to convert audio to base64');
+        }
+
+        console.log('Sending audio data, size:', base64Audio.length);
         
         // Send to speech-to-text service
         const response = await fetch('https://ftuxzwjwudxtpwqlqurj.functions.supabase.co/speech-to-text', {
@@ -140,11 +162,15 @@ export const VoiceInterface = ({
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Speech-to-text error:', errorText);
           throw new Error('Failed to transcribe speech');
         }
 
         const data = await response.json();
         const transcription = data.text || "Voice input received";
+        
+        console.log('Transcription received:', transcription);
         
         setInputText(transcription);
         toast({
