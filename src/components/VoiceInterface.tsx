@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Mic, MicOff, Volume2, VolumeX, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface VoiceInterfaceProps {
   personalityMode: string;
@@ -32,10 +33,10 @@ export const VoiceInterface = ({
   const [messages, setMessages] = useState<Array<{id: string, text: string, sender: 'user' | 'mish', timestamp: Date}>>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -297,26 +298,41 @@ export const VoiceInterface = ({
       
       console.log('Generating TTS for:', text);
       
+      // Clean text for better TTS
+      const cleanText = text.replace(/```[\s\S]*?```/g, '').replace(/\*\*/g, '').trim();
+      if (!cleanText) {
+        onSpeakEnd();
+        return;
+      }
+      
       const response = await fetch('https://ftuxzwjwudxtpwqlqurj.functions.supabase.co/text-to-speech', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: cleanText }),
       });
 
       console.log('TTS response status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('TTS response error:', errorText);
-        throw new Error(`Failed to generate speech: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('TTS response error:', errorData);
+        
+        if (response.status === 429) {
+          throw new Error('Speech service is busy. Please try again in a moment.');
+        }
+        throw new Error(errorData.error || 'Failed to generate speech');
       }
 
       const data = await response.json();
       console.log('TTS response received');
       
-      // Create and play audio
+      if (!data.audioContent) {
+        throw new Error('No audio content received');
+      }
+      
+      // Create and play audio with better error handling
       const audioBlob = new Blob([
         Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))
       ], { type: 'audio/mpeg' });
@@ -336,7 +352,6 @@ export const VoiceInterface = ({
         onSpeakEnd();
         URL.revokeObjectURL(audioUrl);
         currentAudioRef.current = null;
-        throw new Error('Audio playback failed');
       };
       
       await audio.play();
@@ -345,8 +360,8 @@ export const VoiceInterface = ({
       console.error('Error playing text-to-speech:', error);
       onSpeakEnd();
       toast({
-        title: "TTS Error",
-        description: "Failed to play speech. Please check your connection.",
+        title: "Speech Error",
+        description: error.message || "Speech temporarily unavailable.",
         variant: "destructive"
       });
     }
@@ -369,9 +384,16 @@ export const VoiceInterface = ({
   };
 
   return (
-    <Card className={cn("p-6 bg-card/50 backdrop-blur-sm border-border/50", className)}>
+    <Card className={cn(
+      "bg-card/50 backdrop-blur-sm border-border/50",
+      isMobile ? "p-3" : "p-6",
+      className
+    )}>
       {/* Messages */}
-      <div className="h-64 overflow-y-auto mb-4 space-y-3 scrollbar-thin">
+      <div className={cn(
+        "overflow-y-auto mb-4 space-y-3 scrollbar-thin",
+        isMobile ? "h-48" : "h-64"
+      )}>
         {messages.map((message) => (
           <div
             key={message.id}
@@ -382,14 +404,15 @@ export const VoiceInterface = ({
           >
             <div
               className={cn(
-                "max-w-[80%] p-3 rounded-lg",
+                "p-3 rounded-lg",
+                isMobile ? "max-w-[85%]" : "max-w-[80%]",
                 message.sender === "user"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
               )}
             >
-              <p className="text-sm">{message.text}</p>
-              <span className="text-xs opacity-70 mt-1 block">
+              <p className={cn("text-sm", isMobile && "text-xs")}>{message.text}</p>
+              <span className={cn("opacity-70 mt-1 block", isMobile ? "text-xs" : "text-xs")}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -403,8 +426,11 @@ export const VoiceInterface = ({
         <Textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder={`Type your message to ${personalityMode} MISHARAIZE...`}
-          className="min-h-[80px] bg-background/50"
+          placeholder={`Type to ${personalityMode} MISHARAIZE...`}
+          className={cn(
+            "bg-background/50",
+            isMobile ? "min-h-[60px] text-sm" : "min-h-[80px]"
+          )}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -413,48 +439,63 @@ export const VoiceInterface = ({
           }}
         />
         
-        <div className="flex justify-between items-center">
-          <div className="flex space-x-2">
+        <div className={cn(
+          "flex items-center",
+          isMobile ? "flex-col space-y-2" : "justify-between"
+        )}>
+          <div className={cn(
+            "flex",
+            isMobile ? "space-x-1 w-full justify-center" : "space-x-2"
+          )}>
             <Button
               variant={isRecording ? "destructive" : "outline"}
-              size="sm"
+              size={isMobile ? "sm" : "sm"}
               onClick={handleMicToggle}
               className={cn(
                 "transition-all duration-300",
-                isRecording && "animate-pulse-glow"
+                isRecording && "animate-pulse-glow",
+                isMobile && "flex-1"
               )}
               disabled={isSpeaking}
             >
               {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              {isRecording ? "Stop" : "Voice"}
+              {!isMobile && (isRecording ? "Stop" : "Voice")}
             </Button>
             
             <Button
               variant="outline"
-              size="sm"
+              size={isMobile ? "sm" : "sm"}
               onClick={toggleTTS}
               className={cn(
                 "transition-all duration-300",
-                isVoiceEnabled && "bg-primary/20"
+                isVoiceEnabled && "bg-primary/20",
+                isMobile && "flex-1"
               )}
             >
               {isVoiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              TTS {isVoiceEnabled ? "On" : "Off"}
+              {!isMobile && `TTS ${isVoiceEnabled ? "On" : "Off"}`}
+            </Button>
+            
+            <Button
+              onClick={handleSendMessage}
+              disabled={!inputText.trim() || isSpeaking}
+              className={cn(
+                "bg-gradient-ai hover:shadow-glow transition-all duration-300",
+                isMobile && "flex-1"
+              )}
+              size={isMobile ? "sm" : "sm"}
+            >
+              <Send className="w-4 h-4" />
+              {!isMobile && (isSpeaking ? "Speaking..." : "Send")}
             </Button>
           </div>
-          
-          <Button
-            onClick={handleSendMessage}
-            disabled={!inputText.trim() || isSpeaking}
-            className="bg-gradient-ai hover:shadow-glow transition-all duration-300"
-          >
-            <Send className="w-4 h-4" />
-            {isSpeaking ? "Speaking..." : "Send"}
-          </Button>
         </div>
         
         {/* Status indicators */}
-        <div className="flex justify-center space-x-4 text-xs text-muted-foreground">
+        <div className={cn(
+          "flex justify-center space-x-4 text-muted-foreground",
+          isMobile ? "text-xs" : "text-xs"
+        )}>
           {isRecording && (
             <span className="flex items-center space-x-1 animate-pulse">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
@@ -464,7 +505,7 @@ export const VoiceInterface = ({
           {isSpeaking && (
             <span className="flex items-center space-x-1 animate-pulse">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>MISHARAIZE is speaking...</span>
+              <span>MISHARAIZE speaking...</span>
             </span>
           )}
           {isVoiceEnabled && !isSpeaking && !isRecording && (
