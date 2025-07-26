@@ -75,19 +75,35 @@ export const VoiceInterface = ({
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      // Request microphone permission explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+      
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+      
+      const chunks: Blob[] = [];
       
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          setAudioChunks(prev => [...prev, event.data]);
+          chunks.push(event.data);
         }
       };
       
       recorder.onstop = async () => {
-        console.log('Recording stopped, chunks:', audioChunks.length);
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        console.log('Recording stopped, chunks:', chunks.length);
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         console.log('Created audio blob:', audioBlob.size, 'bytes');
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
         if (audioBlob.size > 0) {
           await processVoiceInput(audioBlob);
         } else {
@@ -97,23 +113,32 @@ export const VoiceInterface = ({
             variant: "destructive"
           });
         }
-        setAudioChunks([]);
       };
       
       setMediaRecorder(recorder);
-      recorder.start();
+      recorder.start(1000); // Collect data every second
       setIsRecording(true);
       onVoiceStart();
       
       toast({
-        title: "Recording started",
-        description: "MISHARAIZE is listening to you..."
+        title: "🎤 Recording started",
+        description: "MISHARAIZE is listening to you. Speak clearly!"
       });
     } catch (error) {
       console.error('Error starting recording:', error);
+      let errorMessage = "Could not access microphone. ";
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += "Please allow microphone access in your browser settings.";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += "No microphone found. Please connect a microphone.";
+      } else {
+        errorMessage += "Please check permissions and try again.";
+      }
+      
       toast({
-        title: "Microphone error",
-        description: "Could not access microphone. Please check permissions.",
+        title: "🚫 Microphone error",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -122,12 +147,11 @@ export const VoiceInterface = ({
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
       onVoiceEnd();
       
       toast({
-        title: "Processing speech",
+        title: "🔄 Processing speech",
         description: "Converting your speech to text..."
       });
     }
