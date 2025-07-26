@@ -44,15 +44,15 @@ export const VoiceInterface = ({
   const getPersonalityGreeting = () => {
     switch (personalityMode) {
       case "romantic":
-        return "Hello, darling. I'm MISH, your devoted companion. How may I enchant your day? 💕";
+        return "Hello, darling. I'm MISHARAIZE, your devoted companion. How may I enchant your day? 💕";
       case "teacher":
-        return "Good day! I'm MISH, your dedicated learning companion. What would you like to explore today? 📚";
+        return "Good day! I'm MISHARAIZE, your dedicated learning companion. What would you like to explore today? 📚";
       case "dark-hacker":
-        return "Greetings, fellow digital wanderer. I'm MISH, your guide through the matrix. What secrets shall we uncover? 🔮";
+        return "Greetings, fellow digital wanderer. I'm MISHARAIZE, your guide through the matrix. What secrets shall we uncover? 🔮";
       case "comedic":
-        return "Hey there, champ! I'm MISH, your AI buddy with a sense of humor. Ready for some fun? 😄";
+        return "Hey there, champ! I'm MISHARAIZE, your AI buddy with a sense of humor. Ready for some fun? 😄";
       default:
-        return "Hello! I'm MISH, your intelligent companion. How can I support you today? 🤖";
+        return "Hello! I'm MISHARAIZE, your intelligent companion. How can I support you today? 🤖";
     }
   };
 
@@ -97,7 +97,7 @@ export const VoiceInterface = ({
       
       toast({
         title: "Recording started",
-        description: "MISH is listening to you..."
+        description: "MISHARAIZE is listening to you..."
       });
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -130,9 +130,21 @@ export const VoiceInterface = ({
       reader.onloadend = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
         
-        // Send to speech-to-text service (you can implement this)
-        // For now, we'll simulate with a placeholder
-        const transcription = "Voice input received"; // Replace with actual STT
+        // Send to speech-to-text service
+        const response = await fetch('https://ftuxzwjwudxtpwqlqurj.functions.supabase.co/speech-to-text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ audio: base64Audio }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to transcribe speech');
+        }
+
+        const data = await response.json();
+        const transcription = data.text || "Voice input received";
         
         setInputText(transcription);
         toast({
@@ -217,7 +229,7 @@ export const VoiceInterface = ({
       console.error('Error getting AI response:', error);
       toast({
         title: "Error",
-        description: "Failed to get response from MISH. Please try again.",
+        description: "Failed to get response from MISHARAIZE. Please try again.",
         variant: "destructive"
       });
     }
@@ -302,7 +314,7 @@ export const VoiceInterface = ({
     
     toast({
       title: isVoiceEnabled ? "TTS Disabled" : "TTS Enabled",
-      description: isVoiceEnabled ? "MISH will no longer speak responses" : "MISH will now speak responses"
+      description: isVoiceEnabled ? "MISHARAIZE will no longer speak responses" : "MISHARAIZE will now speak responses"
     });
   };
 
@@ -341,7 +353,7 @@ export const VoiceInterface = ({
         <Textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder={`Type your message to ${personalityMode} MISH...`}
+          placeholder={`Type your message to ${personalityMode} MISHARAIZE...`}
           className="min-h-[80px] bg-background/50"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -402,7 +414,7 @@ export const VoiceInterface = ({
           {isSpeaking && (
             <span className="flex items-center space-x-1 animate-pulse">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>MISH is speaking...</span>
+              <span>MISHARAIZE is speaking...</span>
             </span>
           )}
           {isVoiceEnabled && !isSpeaking && !isRecording && (

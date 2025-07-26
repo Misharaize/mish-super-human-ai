@@ -12,7 +12,7 @@ interface PersonalitySelectorProps {
 const personalityModes = [
   {
     id: "default",
-    name: "Default MISH",
+    name: "Default MISHARAIZE",
     description: "Supportive, humanlike assistant",
     icon: Bot,
     color: "primary",
@@ -20,7 +20,7 @@ const personalityModes = [
   },
   {
     id: "romantic",
-    name: "Romantic MISH",
+    name: "Romantic MISHARAIZE",
     description: "Gentle, poetic, soft-spoken",
     icon: Heart,
     color: "pink-400",
@@ -28,7 +28,7 @@ const personalityModes = [
   },
   {
     id: "teacher",
-    name: "Teacher MISH",
+    name: "Teacher MISHARAIZE",
     description: "Calm, clear, and structured",
     icon: GraduationCap,
     color: "blue-400",
@@ -36,7 +36,7 @@ const personalityModes = [
   },
   {
     id: "dark-hacker",
-    name: "Dark Hacker MISH",
+    name: "Dark Hacker MISHARAIZE",
     description: "Edgy, mysterious, tech-savvy",
     icon: Terminal,
     color: "green-400",
@@ -44,7 +44,7 @@ const personalityModes = [
   },
   {
     id: "comedic",
-    name: "Comedic MISH",
+    name: "Comedic MISHARAIZE",
     description: "Witty, funny, quick with jokes",
     icon: Laugh,
     color: "yellow-400",

@@ -88,7 +88,7 @@ export const MishAvatar = ({ personalityMode, isListening, isSpeaking, className
       {/* Status Indicator */}
       <div className="text-center">
         <div className="text-sm font-medium text-primary mb-1">
-          {personalityMode.charAt(0).toUpperCase() + personalityMode.slice(1)} MISH
+          {personalityMode.charAt(0).toUpperCase() + personalityMode.slice(1)} MISHARAIZE
         </div>
         <div className="text-xs text-muted-foreground">
           {isSpeaking ? "Speaking..." : isListening ? "Listening..." : "Ready"}

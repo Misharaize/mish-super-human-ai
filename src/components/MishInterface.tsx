@@ -22,7 +22,7 @@ export const MishInterface = () => {
       {/* Header */}
       <div className="p-6 text-center border-b border-border/20">
         <h1 className="text-4xl font-bold bg-gradient-ai bg-clip-text text-transparent mb-2">
-          MISH
+          MISHARAIZE
         </h1>
         <p className="text-lg text-muted-foreground mb-4">
           Multimodal Interactive Super Human
@@ -88,7 +88,7 @@ export const MishInterface = () => {
         <Card className="mt-8 p-6 bg-card/20 backdrop-blur-sm border-border/30">
           <div className="text-center text-sm text-muted-foreground">
             <p className="mb-2">
-              <strong>MISH Features:</strong> Voice Recognition • Text-to-Speech • Emotional Responses • Multi-language Support
+              <strong>MISHARAIZE Features:</strong> Voice Recognition • Text-to-Speech • Emotional Responses • Multi-language Support
             </p>
             <p>
               Switch between personality modes to experience different communication styles. 
