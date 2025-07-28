@@ -76,17 +76,43 @@ export const VoiceInterface = ({
 
   const startRecording = async () => {
     try {
-      // Request microphone permission explicitly
+      // Check if browser supports necessary APIs
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Your browser does not support voice recording.');
+      }
+
+      // Request microphone permission explicitly with cross-platform settings
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
           sampleRate: 44100
         }
       });
       
+      // Choose the best supported format for cross-platform compatibility
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
+      ];
+      
+      let selectedMimeType = '';
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          break;
+        }
+      }
+      
+      if (!selectedMimeType) {
+        throw new Error('No supported audio format found on this device.');
+      }
+
       const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: selectedMimeType
       });
       
       const chunks: Blob[] = [];
@@ -291,6 +317,7 @@ export const VoiceInterface = ({
       // Stop any currently playing audio
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
+        currentAudioRef.current.src = '';
         currentAudioRef.current = null;
       }
 
@@ -298,8 +325,19 @@ export const VoiceInterface = ({
       
       console.log('Generating TTS for:', text);
       
-      // Clean text for better TTS
-      const cleanText = text.replace(/```[\s\S]*?```/g, '').replace(/\*\*/g, '').trim();
+      // Clean text for better TTS - remove markdown and limit length
+      let cleanText = text
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/#{1,6}\s/g, '')
+        .trim();
+      
+      // Limit text length for better performance
+      if (cleanText.length > 500) {
+        cleanText = cleanText.substring(0, 500) + '...';
+      }
+      
       if (!cleanText) {
         onSpeakEnd();
         return;
@@ -332,15 +370,15 @@ export const VoiceInterface = ({
         throw new Error('No audio content received');
       }
       
-      // Create and play audio with better error handling
+      // Create and play audio with better error handling and cross-platform support
       const audioBlob = new Blob([
         Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))
       ], { type: 'audio/mpeg' });
       
       const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      currentAudioRef.current = audio;
+      const audio = new Audio();
       
+      // Set up event handlers before setting src
       audio.onended = () => {
         onSpeakEnd();
         URL.revokeObjectURL(audioUrl);
@@ -352,9 +390,29 @@ export const VoiceInterface = ({
         onSpeakEnd();
         URL.revokeObjectURL(audioUrl);
         currentAudioRef.current = null;
+        toast({
+          title: "Audio Error",
+          description: "Could not play audio on this device.",
+          variant: "destructive"
+        });
+      };
+
+      audio.oncanplaythrough = async () => {
+        try {
+          await audio.play();
+        } catch (playError) {
+          console.error('Audio play error:', playError);
+          onSpeakEnd();
+          toast({
+            title: "Playback Error", 
+            description: "Please enable autoplay or click to allow audio.",
+            variant: "destructive"
+          });
+        }
       };
       
-      await audio.play();
+      currentAudioRef.current = audio;
+      audio.src = audioUrl;
       
     } catch (error) {
       console.error('Error playing text-to-speech:', error);
